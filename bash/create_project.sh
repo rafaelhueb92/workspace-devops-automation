@@ -1,5 +1,7 @@
 git clone https://github.com/iesodias/devops-automation-api.git ../temp-folder
 
-cp -r ../temp-folder/pom.xml ../temp-folder/src ../temp-folder/Dockerfile ./
+mkdir -p app
+
+cp -r ../temp-folder/* ../temp-folder/.mvn ./app
 
 rm -rf ../temp-folder
