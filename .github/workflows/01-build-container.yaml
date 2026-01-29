@@ -20,6 +20,9 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
     steps:
       - name: 🔍 Checkout Code
         uses: actions/checkout@v3
