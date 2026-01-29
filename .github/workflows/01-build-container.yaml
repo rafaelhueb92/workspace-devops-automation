@@ -64,14 +64,18 @@ jobs:
       - name: 📤 Push to Azure Container Registry
         run: docker push ${{ env.REGISTRY_IMAGE }}
 
-      - name: 📦 list folder
-        run: ls -la ./
+      - name: 🔎 Debug list build outputs
+        run: |
+          pwd
+          ls -la
+          ls -la target || true
+          find . -maxdepth 4 -type f -name "*.jar" -print
 
       - name: 📦 Upload Artifact
         uses: actions/upload-artifact@v4 # To transit to another job
         with:
           name: java-api-artifact
-          path: ./target/*
+          path: target/*.jar
 
   deploy-staging:
     needs: build-and-test
