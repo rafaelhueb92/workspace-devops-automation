@@ -32,6 +32,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+      
+      - name: "Check folders"
+        run: "ls -la | grep mvn"
 
       - name: 📦 Build with Maven
         run: mvn clean package -DskipTests
