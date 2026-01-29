@@ -75,7 +75,9 @@ jobs:
         uses: actions/upload-artifact@v4 # To transit to another job
         with:
           name: java-api-artifact
-          path: target/*.jar
+          path: |
+            **/target/*.jar
+            !**/target/*.jar.original
 
   deploy-staging:
     needs: build-and-test
