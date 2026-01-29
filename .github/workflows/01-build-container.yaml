@@ -31,16 +31,13 @@ jobs:
           java-version: '17'
 
       - name: 📦 Build with Maven
-        working-directory: ./app
         run: mvn clean package -DskipTests
 
       - name: 🧪 Run Tests
-        working-directory: ./app
         run: mvn test
 
       - name: 🛠 Build Docker Image
-        working-directory: .
-        run: docker build -t ${{ env.IMAGE_NAME }} ./app
+        run: docker build -t ${{ env.IMAGE_NAME }} .
 
       - name: 🔐 Trivy Scan (Image)
         uses: aquasecurity/trivy-action@master
@@ -65,7 +62,7 @@ jobs:
         run: docker push ${{ env.REGISTRY_IMAGE }}
 
       - name: 📦 Upload Artifact
-        uses: actions/upload-artifact@v4 # To transit to another job
+        uses: actions/upload-artifact@v4
         with:
           name: java-api-artifact
           path: target/*.jar
