@@ -2,6 +2,8 @@ RESOURCE_GROUP="rg-devops-lab"
 REGISTRY_NAME="devopsautomationid$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -d'-' -f1)" # Generate a random uuid to not have the same
 LOCATION="eastus"
 
+az login
+
 echo "Creating resource group"
 
 az group create --name $RESOURCE_GROUP --location $LOCATION
