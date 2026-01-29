@@ -64,6 +64,9 @@ jobs:
       - name: 📤 Push to Azure Container Registry
         run: docker push ${{ env.REGISTRY_IMAGE }}
 
+      - name: 🛠 Generate jar
+        run: mvnw clean package -DskipTests
+
       - name: 📦 Upload Artifact
         uses: actions/upload-artifact@v4 # To transit to another job
         with:
