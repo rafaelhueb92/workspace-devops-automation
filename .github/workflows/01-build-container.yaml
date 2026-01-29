@@ -20,9 +20,6 @@ env:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./app
     steps:
       - name: 🔍 Checkout Code
         uses: actions/checkout@v3
@@ -34,13 +31,14 @@ jobs:
           java-version: '17'
 
       - name: 📦 Build with Maven
+        working-directory: ./app
         run: mvn clean package -DskipTests
 
       - name: 🧪 Run Tests
         run: mvn test
 
       - name: 🛠 Build Docker Image
-        run: docker build -t ${{ env.IMAGE_NAME }} .
+        run: docker build -t ${{ env.IMAGE_NAME }} ./app
 
       - name: 🔐 Trivy Scan (Image)
         uses: aquasecurity/trivy-action@master

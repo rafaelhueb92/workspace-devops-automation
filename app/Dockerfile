@@ -6,16 +6,16 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 
 # Copia apenas os arquivos de configuração do Maven primeiro (para cache)
-COPY pom.xml .
+COPY ./app/pom.xml .
 COPY .mvn .mvn
-COPY ../mvnw .
-#COPY ../mvnw.cmd .
+COPY mvnw .
+COPY mvnw.cmd .
 
 # Baixa as dependências (esta camada será cacheada)
 RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 
 # Copia o código fonte
-COPY src ./src
+COPY ./app/src ./src
 
 # Compila a aplicação
 RUN ./mvnw clean package -DskipTests
