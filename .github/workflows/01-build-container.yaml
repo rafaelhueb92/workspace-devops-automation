@@ -35,6 +35,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: 🧪 Run Tests
+        working-directory: ./app
         run: mvn test
 
       - name: 🛠 Build Docker Image
