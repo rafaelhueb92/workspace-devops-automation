@@ -15,7 +15,7 @@ COPY mvnw.cmd .
 RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 
 # Copia o código fonte
-COPY ./app/src ./src
+COPY ./src/ ./src
 
 # Compila a aplicação
 RUN ./mvnw clean package -DskipTests
