@@ -16,6 +16,12 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  ARTIFACT_NAME: "api-${{ github.sha }}.jar"
+  IMAGE_NAME: "java-api:${{ github.sha }}"
+  REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
+  REGISTRY_IMAGE: "${{ secrets.AZURE_REGISTRY_NAME }}/java-api:${{ github.sha }}"
+
 jobs:
   validate:
     if: ${{ github.event.inputs.destroy == 'false' }}
@@ -44,7 +50,7 @@ jobs:
 
   deploy:
     if: ${{ github.event.inputs.destroy == 'false' }}
-    name: 🚀 Deploy e Configuração
+    name: 🚀 Deploy e Configuração da Infra
     needs: validate
     runs-on: ubuntu-latest
     outputs:
@@ -89,24 +95,82 @@ jobs:
           echo "PUBLIC_IP=${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
           echo "SSH_COMMAND=ssh azureuser@${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
 
-      - name: Instalar Ansible e sshpass
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible sshpass
+  build-and-test-push-to-acr:
+    if: ${{ github.event.inputs.destroy == 'false' }}
+    name: 📤 Build da imagem para o ACR
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - name: 🔍 Checkout Code
+        uses: actions/checkout@v3
 
-      - name: Criar Inventário Ansible
-        run: |
-          echo "[vm]" > inventory
-          echo "${{ env.PUBLIC_IP }} ansible_user=${{ env.ADMIN_USERNAME }} ansible_password=${{ secrets.ADMIN_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Executar Playbook Ansible
-        run: |
-          ansible-playbook -i inventory ansible/playbook.yml --extra-vars "ansible_sudo_pass=${{ secrets.ADMIN_PASSWORD }}"
+      - name: 📦 Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: 🧪 Run Tests
+        run: mvn test
+
+      - name: 🛠 Build Docker Image
+        run: docker build -t ${{ env.IMAGE_NAME }} .
+
+      - name: 🔐 Trivy Scan (Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          format: table
+          exit-code: 0
+          severity: HIGH,CRITICAL
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: 🔐 Docker Login to ACR
+        run: az acr login --name ${{ env.REGISTRY_NAME }}
+
+      - name: 🏷️ Tag Docker Image
+        run: docker tag ${{ env.IMAGE_NAME }} ${{ env.REGISTRY_IMAGE }}
+
+      - name: 📤 Push to Azure Container Registry
+        run: docker push ${{ env.REGISTRY_IMAGE }}
+
+  deploy-ansible:
+   if: ${{ github.event.inputs.destroy == 'false' }}
+   name: 🚀 Deploy e Configuração no ansible
+   needs: build-and-test-push-to-acr
+   runs-on: ubuntu-latest
+   env:
+      PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
+      ADMIN_USERNAME: ${{ needs.deploy.outputs.adminUsername }}
+   steps:
+    - name: Instalar Ansible e sshpass
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ansible sshpass
+
+    - name: Criar Inventário Ansible
+      run: |
+        echo "[vm]" > inventory
+        echo "${{ env.PUBLIC_IP }} ansible_user=${{ env.ADMIN_USERNAME }} ansible_password=${{ secrets.ADMIN_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory
+    
+    - name: Executar Playbook Ansible
+      run: |
+        ansible-playbook -i inventory ansible/playbook.yml --extra-vars "ansible_sudo_pass=${{ secrets.ADMIN_PASSWORD }}"
 
   post-tests:
     if: ${{ github.event.inputs.destroy == 'false' }}
     name: ✅ Pós-Testes de Infra
-    needs: deploy
+    needs: deploy-ansible
     runs-on: ubuntu-latest
     env:
       PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
