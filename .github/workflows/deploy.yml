@@ -95,11 +95,14 @@ jobs:
           echo "PUBLIC_IP=${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
           echo "SSH_COMMAND=ssh azureuser@${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
 
-  build-and-test-push-to-acr:
+  acr:
     if: ${{ github.event.inputs.destroy == 'false' }}
     name: 📤 Build da imagem para o ACR
     needs: deploy
     runs-on: ubuntu-latest
+    outputs:
+      publicIP: ${{ needs.deploy.outputs.publicIP }}
+      adminUsername: ${{ needs.deploy.outputs.adminUsername }}
     defaults:
       run:
         working-directory: ./app
@@ -147,11 +150,11 @@ jobs:
   deploy-ansible:
    if: ${{ github.event.inputs.destroy == 'false' }}
    name: 🚀 Deploy e Configuração no ansible
-   needs: deploy
+   needs: acr
    runs-on: ubuntu-latest
    env:
-      PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
-      ADMIN_USERNAME: ${{ needs.deploy.outputs.adminUsername }}
+      PUBLIC_IP: ${{ needs.acr.outputs.publicIP }}
+      ADMIN_USERNAME: ${{ needs.acr.outputs.adminUsername }}
    steps:
     - name: Instalar Ansible e sshpass
       run: |
