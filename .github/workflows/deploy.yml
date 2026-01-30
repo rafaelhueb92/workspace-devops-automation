@@ -149,9 +149,6 @@ jobs:
    name: 🚀 Deploy e Configuração no ansible
    needs: deploy
    runs-on: ubuntu-latest
-   defaults:
-      run:
-        working-directory: ./
    env:
       PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
       ADMIN_USERNAME: ${{ needs.deploy.outputs.adminUsername }}
@@ -168,7 +165,7 @@ jobs:
     
     - name: List the folder
       run: ls -la
-      
+
     - name: Executar Playbook Ansible
       run: |
         ansible-playbook -i inventory ansible/playbook.yml --extra-vars "ansible_sudo_pass=${{ secrets.ADMIN_PASSWORD }}"
