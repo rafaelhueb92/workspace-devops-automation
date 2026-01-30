@@ -1,3 +1,5 @@
+echo "Prepare Terraform Backend"
+
 RESOURCE_GROUP="rg-tfstate"
 STORAGE_ACCOUNT="tfstatecurso$RANDOM"
 CONTAINER_NAME="tfstate"
@@ -16,3 +18,10 @@ az storage container create \
   --name $CONTAINER_NAME \
   --account-name $STORAGE_ACCOUNT \
   --auth-mode login
+
+echo "Create SP for credentials"
+
+SUBSCRIPTION=$(az account list --query "[0].id" --output tsv)
+az ad sp create-for-rbac --name "mdcgithubactions" --role contributor --scopes /subscriptions/$SUBSCRIPTION --sdk-auth
+
+echo "Copy this json into the secret AZURE_CREDENTIALS of the repo"
