@@ -158,7 +158,7 @@ jobs:
    steps:
     - name: Checkout do código
       uses: actions/checkout@v3
-      
+
     - name: Instalar Ansible e sshpass
       run: |
         sudo apt-get update
@@ -176,7 +176,7 @@ jobs:
   post-tests:
     if: ${{ github.event.inputs.destroy == 'false' }}
     name: ✅ Pós-Testes de Infra
-    needs: deploy-ansible
+    needs: [deploy,deploy-ansible]
     runs-on: ubuntu-latest
     env:
       PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
