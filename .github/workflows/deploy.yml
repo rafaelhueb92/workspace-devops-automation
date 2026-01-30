@@ -167,7 +167,7 @@ jobs:
         echo "${{ env.PUBLIC_IP }} ansible_user=${{ env.ADMIN_USERNAME }} ansible_password=${{ secrets.ADMIN_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory
     
     - name: List the folder
-      run: ls -la
+      run: ls -la && ls -la ../
 
     - name: Executar Playbook Ansible
       run: |
