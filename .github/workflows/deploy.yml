@@ -161,6 +161,9 @@ jobs:
           else
             echo "✅ Porta 8081 está liberada corretamente na NSG!"
           fi
+      
+      - name: URL do Swagger para teste
+        run: echo "Acesse em seu navegador http://$PUBLIC_IP:8081/swagger-ui/index.html"  
 
   destroy:
     if: ${{ github.event.inputs.destroy == 'true' }}
