@@ -156,6 +156,9 @@ jobs:
       PUBLIC_IP: ${{ needs.acr.outputs.publicIP }}
       ADMIN_USERNAME: ${{ needs.acr.outputs.adminUsername }}
    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v3
+      
     - name: Instalar Ansible e sshpass
       run: |
         sudo apt-get update
@@ -166,9 +169,6 @@ jobs:
         echo "[vm]" > inventory
         echo "${{ env.PUBLIC_IP }} ansible_user=${{ env.ADMIN_USERNAME }} ansible_password=${{ secrets.ADMIN_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory
     
-    - name: List the folder
-      run: ls -la && ls -la ../
-
     - name: Executar Playbook Ansible
       run: |
         ansible-playbook -i inventory ansible/playbook.yml --extra-vars "ansible_sudo_pass=${{ secrets.ADMIN_PASSWORD }}"
