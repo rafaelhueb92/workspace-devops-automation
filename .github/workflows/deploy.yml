@@ -147,8 +147,11 @@ jobs:
   deploy-ansible:
    if: ${{ github.event.inputs.destroy == 'false' }}
    name: 🚀 Deploy e Configuração no ansible
-   needs: build-and-test-push-to-acr
+   needs: deploy
    runs-on: ubuntu-latest
+   defaults:
+      run:
+        working-directory: ./
    env:
       PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
       ADMIN_USERNAME: ${{ needs.deploy.outputs.adminUsername }}
