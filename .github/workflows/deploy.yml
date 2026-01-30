@@ -7,6 +7,10 @@ on:
         description: 'Destruir infraestrutura?'
         required: true
         default: 'false'
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   id-token: write
