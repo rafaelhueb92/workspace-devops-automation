@@ -1,1 +1,4 @@
 sp_github.json
+.terraform
+*.hcl
+*.tfstate
