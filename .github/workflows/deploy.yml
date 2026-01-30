@@ -70,7 +70,7 @@ jobs:
         run: |
           export ARM_SUBSCRIPTION_ID=${{ secrets.ARM_SUBSCRIPTION_ID }}
           terraform init
-          terraform apply -auto-approve
+          terraform apply -auto-approve 
 
       - name: Capturar Outputs
         id: output_vm

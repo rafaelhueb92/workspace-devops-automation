@@ -1,0 +1,9 @@
+resource "random_string" "random" {
+  length           = 4
+  special          = true
+  override_special = "/@£$"
+}
+
+locals {
+    acr_name =  "devopsautomationid${random_string.random}"
+}
