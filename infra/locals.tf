@@ -5,5 +5,5 @@ resource "random_string" "random" {
 }
 
 locals {
-    acr_name =  "devopsautomationid${random_string.random}"
+  acr_name = "devopsautomationid${random_string.random.result}"
 }
