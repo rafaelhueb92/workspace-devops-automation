@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       destroy:
-        description: 'Destruir infraestrutura?'
+        description: 'Destruct?'
         required: true
         default: 'false'
         type: choice
@@ -19,27 +19,25 @@ permissions:
 env:
   ARTIFACT_NAME: "api-${{ github.sha }}.jar"
   IMAGE_NAME: "java-api:${{ github.sha }}"
-  REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
-  REGISTRY_IMAGE: "${{ secrets.AZURE_REGISTRY_NAME }}/java-api:${{ github.sha }}"
 
 jobs:
   validate:
     if: ${{ github.event.inputs.destroy == 'false' }}
-    name: 🔎 Validar Terraform
+    name: 🔎 Validate Terraform
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
+      - name: Code Checkout
         uses: actions/checkout@v3
 
-      - name: Login no Azure
+      - name: Login in Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Instalar Terraform
+      - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Validar Sintaxe e Plano
+      - name: Validate Sintax and Plan
         working-directory: infra
         run: |
           export ARM_SUBSCRIPTION_ID=${{ secrets.ARM_SUBSCRIPTION_ID }}
@@ -50,7 +48,7 @@ jobs:
 
   deploy:
     if: ${{ github.event.inputs.destroy == 'false' }}
-    name: 🚀 Deploy e Configuração da Infra
+    name: 🚀 Infra Deploy and Config
     needs: validate
     runs-on: ubuntu-latest
     outputs:
@@ -59,26 +57,27 @@ jobs:
       publicIP: ${{ steps.output_vm.outputs.public_ip }}
       nsgName: ${{ steps.output_vm.outputs.nsg_name }}
       resourceGroup: ${{ steps.output_vm.outputs.resource_group }}
+      acr_login_server: ${{ steps.output_vm.outputs.acr_login_server}}
     steps:
-      - name: Checkout do código
+      - name: Code Checkout
         uses: actions/checkout@v3
 
-      - name: Login no Azure
+      - name: Login in Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Instalar Terraform
+      - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Aplicar Terraform
+      - name: Apply Terraform
         working-directory: infra
         run: |
           export ARM_SUBSCRIPTION_ID=${{ secrets.ARM_SUBSCRIPTION_ID }}
           terraform init
           terraform apply -auto-approve 
 
-      - name: Capturar Outputs
+      - name: Capture Outputs
         id: output_vm
         working-directory: infra
         run: |
@@ -87,19 +86,26 @@ jobs:
           echo "public_ip=$(terraform output -raw public_ip_address)" >> $GITHUB_OUTPUT
           echo "nsg_name=$(terraform output -raw nsg_name)" >> $GITHUB_OUTPUT
           echo "resource_group=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
 
-      - name: Definir Variáveis de Ambiente
+      - name: Define Environment Variables
         run: |
           echo "VM_NAME=vm-automation" >> $GITHUB_ENV
           echo "ADMIN_USERNAME=azureuser" >> $GITHUB_ENV
           echo "PUBLIC_IP=${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
           echo "SSH_COMMAND=ssh azureuser@${{ steps.output_vm.outputs.public_ip }}" >> $GITHUB_ENV
 
-  build-and-test-push-to-acr:
+  acr:
     if: ${{ github.event.inputs.destroy == 'false' }}
-    name: 📤 Build da imagem para o ACR
+    name: 📤 Push Image to ACR
     needs: deploy
     runs-on: ubuntu-latest
+    env:
+      REGISTRY_NAME: ${{ needs.deploy.outputs.acr_login_server }}
+      REGISTRY_IMAGE: "${{ needs.deploy.outputs.acr_login_server }}/java-api:${{ github.sha }}"
+    outputs:
+      publicIP: ${{ needs.deploy.outputs.publicIP }}
+      adminUsername: ${{ needs.deploy.outputs.adminUsername }}
     defaults:
       run:
         working-directory: ./app
@@ -146,31 +152,34 @@ jobs:
 
   deploy-ansible:
    if: ${{ github.event.inputs.destroy == 'false' }}
-   name: 🚀 Deploy e Configuração no ansible
-   needs: build-and-test-push-to-acr
+   name: 🚀 Deploy with Ansible
+   needs: acr
    runs-on: ubuntu-latest
    env:
-      PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
-      ADMIN_USERNAME: ${{ needs.deploy.outputs.adminUsername }}
+      PUBLIC_IP: ${{ needs.acr.outputs.publicIP }}
+      ADMIN_USERNAME: ${{ needs.acr.outputs.adminUsername }}
    steps:
-    - name: Instalar Ansible e sshpass
+    - name: Code Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Ansible and sshpass
       run: |
         sudo apt-get update
         sudo apt-get install -y ansible sshpass
 
-    - name: Criar Inventário Ansible
+    - name: Create Ansible Inventory 
       run: |
         echo "[vm]" > inventory
         echo "${{ env.PUBLIC_IP }} ansible_user=${{ env.ADMIN_USERNAME }} ansible_password=${{ secrets.ADMIN_PASSWORD }} ansible_ssh_common_args='-o StrictHostKeyChecking=no'" >> inventory
     
-    - name: Executar Playbook Ansible
+    - name: Execute Ansible Playbook
       run: |
         ansible-playbook -i inventory ansible/playbook.yml --extra-vars "ansible_sudo_pass=${{ secrets.ADMIN_PASSWORD }}"
 
   post-tests:
     if: ${{ github.event.inputs.destroy == 'false' }}
-    name: ✅ Pós-Testes de Infra
-    needs: deploy-ansible
+    name: ✅ Infra Post Tests
+    needs: [deploy,deploy-ansible]
     runs-on: ubuntu-latest
     env:
       PUBLIC_IP: ${{ needs.deploy.outputs.publicIP }}
@@ -178,24 +187,24 @@ jobs:
       NSG_NAME: ${{ needs.deploy.outputs.nsgName }}
       RESOURCE_GROUP: ${{ needs.deploy.outputs.resourceGroup }}
     steps:
-      - name: Login no Azure
+      - name: Login in Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Testar Swagger na Porta 8081
+      - name: Test Swagger on Port 8081
         run: |
-          echo "Aguardando aplicação subir com Swagger..."
+          echo "Waiting app load with Swagger..."
           sleep 30
           response=$(curl -s -o /dev/null -w "%{http_code}" http://$PUBLIC_IP:8081/swagger-ui/index.html)
           if [ "$response" != "200" ]; then
-            echo "❌ Swagger não respondeu como esperado. Status HTTP: $response"
+            echo "❌ Swagger not response as expected. Status HTTP: $response"
             exit 1
           else
-            echo "✅ Swagger disponível em /swagger-ui/index.html na porta 8081!"
+            echo "✅ Swagger available in /swagger-ui/index.html on port 8081!"
           fi
 
-      - name: Verificar status da VM
+      - name: Verify VM Status
         run: |
           status=$(az vm get-instance-view \
             --name "$VM_NAME" \
@@ -203,16 +212,16 @@ jobs:
             --query "instanceView.statuses[?code=='PowerState/running'].displayStatus" \
             --output tsv)
 
-          echo "Status da VM: $status"
+          echo "VM Status : $status"
 
           if [ "$status" != "VM running" ]; then
               echo "❌ A VM não está em execução!"
               exit 1
           else
-              echo "✅ VM está rodando com sucesso!"
+              echo "✅ VM is running successfully!"
           fi
 
-      - name: Verificar regra da NSG para porta 8081
+      - name: Verify rule NSG for port 8081
         run: |
           result=$(az network nsg rule list \
             --nsg-name "$NSG_NAME" \
@@ -220,34 +229,34 @@ jobs:
             --query "[?destinationPortRange=='8081' && access=='Allow']")
 
           if [ "$result" = "[]" ]; then
-            echo "❌ Porta 8081 não está liberada na NSG!"
+            echo "❌ Port 8081 isn't released NSG!"
             exit 1
           else
-            echo "✅ Porta 8081 está liberada corretamente na NSG!"
+            echo "✅ Port 8081 is available in NSG!"
           fi
       
-      - name: URL do Swagger para teste
-        run: echo "Acesse em seu navegador http://$PUBLIC_IP:8081/swagger-ui/index.html"  
+      - name: URL Swagger to Acess
+        run: echo "Access in your navigator http://$PUBLIC_IP:8081/swagger-ui/index.html"  
 
   destroy:
     if: ${{ github.event.inputs.destroy == 'true' }}
-    name: 🧨 Destruir Infraestrutura
+    name: 🧨 Destruct Infra
     runs-on: ubuntu-latest
     env:
       ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
     steps:
-      - name: Checkout do código
+      - name: Code Checkout
         uses: actions/checkout@v3
 
-      - name: Login no Azure
+      - name: Login in Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Instalar Terraform
+      - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Executar Terraform Destroy
+      - name: Execute Terraform Destroy
         working-directory: infra
         run: |
           terraform init

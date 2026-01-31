@@ -21,6 +21,8 @@ az storage container create \
 
 echo "Create SP for credentials"
 
+echo "==================================================================================="
+
 SUBSCRIPTION=$(az account list --query "[0].id" --output tsv)
 az ad sp create-for-rbac --name "mdcgithubactions" --role contributor --scopes /subscriptions/$SUBSCRIPTION --sdk-auth
 
