@@ -27,7 +27,3 @@ SUBSCRIPTION=$(az account list --query "[0].id" --output tsv)
 az ad sp create-for-rbac --name "mdcgithubactions" --role contributor --scopes /subscriptions/$SUBSCRIPTION --sdk-auth
 
 echo "Copy this json into the secret AZURE_CREDENTIALS of the repo"
-
-ACR=$(az acr list --query "[0].name" --output tsv)
-
-echo "Create a secret AZURE_REGISTRY_NAME with value $(az acr show -n $ACR --query loginServer -o tsv)"
